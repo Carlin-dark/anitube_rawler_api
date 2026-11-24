@@ -2,39 +2,66 @@ import 'package:html/dom.dart';
 import '../../../domain/entities/Item.dart';
 import '../../../domain/exceptions/CrawlerApiException.dart';
 
+String _extractIdFromUrl(String? rawUrl) {
+  if (rawUrl == null || rawUrl.isEmpty) return '';
+  final uri = Uri.tryParse(rawUrl);
+  final segments = (uri?.pathSegments ?? rawUrl.split('/'))
+      .where((segment) => segment.isNotEmpty)
+      .toList();
+  if (segments.isEmpty) return '';
+  return segments.last;
+}
+
 Map<String, dynamic> parseItem(Element itemElement, String divImageClassName,
     String closedCaptionClassName) {
-  var pageLink;
-  var title;
-  var id;
-  var imageUrl;
-  var cc;
+  String? pageLink;
+  String? title;
+  String id = '';
+  String? imageUrl;
+  String cc = 'Legendado';
 
   try {
-    pageLink = itemElement.children[0].attributes['href'];
-    title = itemElement.children[0].attributes['title'];
-    id = pageLink.split('.site/')[1];
+    final anchor = itemElement.localName == 'a'
+        ? itemElement
+        : itemElement.querySelector('a');
 
-    id = id.substring(0, id.length - 1);
+    pageLink = anchor?.attributes['href'] ??
+        (itemElement.children.isNotEmpty
+            ? itemElement.children[0].attributes['href']
+            : null);
 
-    var itemImgDiv = itemElement.children[0]
-        //divImageClassName
-        .getElementsByClassName(divImageClassName)[0];
+    title = anchor?.attributes['title'] ??
+        anchor?.querySelector('img')?.attributes['alt'] ??
+        anchor?.text.trim();
 
-    imageUrl = itemImgDiv.getElementsByTagName('img')[0].attributes['src'];
+    id = _extractIdFromUrl(pageLink);
 
-    /// closedCaptionClassName
-    var elementList = itemImgDiv.getElementsByClassName(closedCaptionClassName);
+    var itemImgDivs = itemElement.getElementsByClassName(divImageClassName);
+    var imgElement = itemImgDivs.isNotEmpty
+        ? itemImgDivs[0].querySelector('img')
+        : itemElement.querySelector('img');
 
-    cc = (elementList == null || elementList.isEmpty)
-        ? "Legendado"
-        : elementList[0].text;
+    imageUrl = imgElement?.attributes['src'] ??
+        imgElement?.attributes['data-src'] ??
+        imgElement?.attributes['data-lazy-src'];
+
+    var ccElements = itemImgDivs.isNotEmpty
+        ? itemImgDivs[0].getElementsByClassName(closedCaptionClassName)
+        : itemElement.getElementsByClassName(closedCaptionClassName);
+
+    if (ccElements.isNotEmpty && ccElements[0].text.trim().isNotEmpty) {
+      cc = ccElements[0].text.trim();
+    }
+
+    if (title == null || title.isEmpty || pageLink == null || pageLink.isEmpty) {
+      throw ParserException(message: "Missing title or pageLink in item");
+    }
 
     return {
       Item.ID: id,
-      Item.TITLE: title,
-      Item.PAGE_URL: pageLink,
-      Item.IMAGE_URL: imageUrl,
+      Item.TITLE: title.trim(),
+      Item.PAGE_URL: pageLink.trim(),
+      Item.IMAGE_URL: (imageUrl ?? '').trim(),
       Item.CC: cc,
     };
   } catch (ex) {

@@ -1,6 +1,6 @@
 class AnitubePath {
-  /// Site base path : "https://www.anitube.site/"
-  static const BASE_PATH = "https://www.anitube.site/";
+  /// Site base path : "https://www.anitube.zip/"
+  static const BASE_PATH = "https://www.anitube.zip/";
 
   static const PAGE = "page/";
   static const HOME_PAGE = BASE_PATH;

@@ -19,84 +19,99 @@ class AnitubeHomePageParser implements IHTMLParser<HomePageInfo> {
     final latestEpisodes = _extractLatestEpisodes(html);
     final mostShowedAnimes = _extractMostShowedAnimes(html);
     final recentAnimes = _extractRecentAnimes(html);
-    final dailyReselases = _extractDayRelease(html);
+    final dailyReleases = _extractDayRelease(html);
 
     return HomePageInfo(
       recentAnimes.map((e) => AnimeItem.fromJson(e)).toList(),
       mostShowedAnimes.map((e) => AnimeItem.fromJson(e)).toList(),
       latestEpisodes.map((e) => EpisodeItem.fromJson(e)).toList(),
-      dailyReselases.map((e) => AnimeItem.fromJson(e)).toList(),
+      dailyReleases.map((e) => AnimeItem.fromJson(e)).toList(),
     );
   }
 
-  List<Map<String, dynamic>> _parseAnimeItemContent(String page,
+  List> _parseAnimeItemContent(String page,
       {_HomePageAnimeCategory category = _HomePageAnimeCategory.MOST_SHOWED}) {
-    var dataList = <Map<String, dynamic>>[];
-    Document pageDocument;
+    var dataList = >[];
 
     if (page.isNotEmpty) {
       try {
-        pageDocument = parse(page);
-        var body = pageDocument.getElementsByTagName('body')[0];
+        Document pageDocument = parse(page);
+        var bodies = pageDocument.getElementsByTagName('body');
+        if (bodies.isEmpty) return dataList;
+
         var containers =
-            body.getElementsByClassName(AnitubeElementName.ANI_CONTAINER);
+            bodies[0].getElementsByClassName(AnitubeElementName.ANI_CONTAINER);
+        if (category.index >= containers.length) return dataList;
 
-        // most recents aniItems
-        var aniItemList = containers[category.index]
-            .children[1]
-            .getElementsByClassName(AnitubeElementName.ANI_ITEM);
+        var targetContainer = containers[category.index];
+        var aniItemList =
+            targetContainer.getElementsByClassName(AnitubeElementName.ANI_ITEM);
 
-        aniItemList.forEach((aniItem) {
+        for (final aniItem in aniItemList) {
           try {
-            dataList.add(parseItem(aniItem, AnitubeElementName.ANI_ITEM_IMG,
-                AnitubeElementName.ANI_CC));
+            dataList.add(parseItem(
+              aniItem,
+              AnitubeElementName.ANI_ITEM_IMG,
+              AnitubeElementName.ANI_CC,
+            ));
           } on ParserException catch (ex) {
             print('HomePageParser::_parseAnimeItemContent ${ex.message}');
           }
-        });
+        }
       } catch (ex) {
         print(
             'HomePageParser::_parseAnimeItemContent error while parsing.\n$ex');
-        throw ParserException(message: "Error parsing Animes");
       }
     }
 
     return dataList;
   }
 
-  /// Obtem os epsodios mais recentes
-  List<Map<String, dynamic>> _extractLatestEpisodes(String page) {
-    var dataList = <Map<String, dynamic>>[];
-    var body = parse(page).getElementsByTagName('body')[0];
-    // container class changes
-    var subContainer = body
-        .getElementsByClassName(AnitubeElementName.EPI_CONTAINER)[0]
-        .getElementsByClassName(AnitubeElementName.EPI_SUBCONTAINER)[0];
+  /// Obtem os episodios mais recentes
+  List> _extractLatestEpisodes(String page) {
+    var dataList = >[];
+    if (page.isEmpty) return dataList;
 
-    subContainer.children.forEach((epiItem) {
-      try {
-        dataList.add(parseItem(epiItem, AnitubeElementName.EPI_ITEM_IMG,
-            AnitubeElementName.EPI_CC));
-      } on ParserException catch (ex) {
-        print('HomePageParser::extractLatestEpisodes ${ex.message} ');
+    try {
+      var bodies = parse(page).getElementsByTagName('body');
+      if (bodies.isEmpty) return dataList;
+
+      var epiContainers =
+          bodies[0].getElementsByClassName(AnitubeElementName.EPI_CONTAINER);
+      if (epiContainers.isEmpty) return dataList;
+
+      var subContainers = epiContainers[0]
+          .getElementsByClassName(AnitubeElementName.EPI_SUBCONTAINER);
+      var targetElement =
+          subContainers.isNotEmpty ? subContainers[0] : epiContainers[0];
+
+      for (final epiItem in targetElement.children) {
+        try {
+          dataList.add(parseItem(
+            epiItem,
+            AnitubeElementName.EPI_ITEM_IMG,
+            AnitubeElementName.EPI_CC,
+          ));
+        } on ParserException catch (ex) {
+          print('HomePageParser::extractLatestEpisodes ${ex.message}');
+        }
       }
-    });
+    } catch (ex) {
+      print('HomePageParser::extractLatestEpisodes error: $ex');
+    }
 
     return dataList;
   }
 
-  /// Obtem os animes mais visualizados
-  List<Map<String, dynamic>> _extractMostShowedAnimes(String page) =>
+  List> _extractMostShowedAnimes(String page) =>
       _parseAnimeItemContent(page,
           category: _HomePageAnimeCategory.MOST_SHOWED);
 
-  /// obtem os animes mais recentes
-  List<Map<String, dynamic>> _extractRecentAnimes(String page) =>
+  List> _extractRecentAnimes(String page) =>
       _parseAnimeItemContent(page,
           category: _HomePageAnimeCategory.MOST_RECENT);
 
-  /// Obtem lancamentos do dia
-  List<Map<String, dynamic>> _extractDayRelease(String page) =>
+  List> _extractDayRelease(String page) =>
       _parseAnimeItemContent(page,
           category: _HomePageAnimeCategory.DAY_RELEASE);
 }
